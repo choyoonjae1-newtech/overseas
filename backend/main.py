@@ -54,6 +54,10 @@ app.include_router(events.router)
 app.include_router(scheduler.router)
 app.include_router(indicators.router)
 
+# 관리자 라우터
+from routers import admin
+app.include_router(admin.router)
+
 
 @app.get("/")
 def root():
