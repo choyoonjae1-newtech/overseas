@@ -80,30 +80,30 @@ export default function CountryDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
           <button
             onClick={() => navigate('/')}
-            className="text-blue-700 hover:text-blue-800 text-sm"
+            className="text-blue-700 hover:text-blue-800 text-xs sm:text-sm whitespace-nowrap"
           >
             ← 홈으로
           </button>
-          <div className="text-center">
-            <h1 className="text-xl font-semibold text-gray-800">{countryName}</h1>
-            <p className="text-xs text-gray-600">{countryFullName}</p>
+          <div className="text-center flex-1 mx-2">
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-800">{countryName}</h1>
+            <p className="text-xs text-gray-600 hidden sm:block">{countryFullName}</p>
           </div>
-          <div className="w-20"></div>
+          <div className="w-12 sm:w-20"></div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* 탭 메뉴 */}
-        <div className="bg-white border-b border-gray-200 mb-6">
-          <div className="flex gap-1">
+        <div className="bg-white border-b border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
+          <div className="flex gap-1 min-w-max">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 text-sm font-medium transition border-b-2 ${
+                className={`px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium transition border-b-2 whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-blue-700 text-blue-700'
                     : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
@@ -118,8 +118,8 @@ export default function CountryDashboard() {
         {/* 탭 컨텐츠 */}
         <div>
           {activeTab === 'schedule' && (
-            <div className="bg-white p-6 border border-gray-200">
-              <h2 className="text-lg font-semibold mb-6 text-gray-800">일정 캘린더</h2>
+            <div className="bg-white p-3 sm:p-6 border border-gray-200">
+              <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-gray-800">일정 캘린더</h2>
               {loading ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500">로딩 중...</p>
@@ -133,13 +133,13 @@ export default function CountryDashboard() {
           )}
 
           {activeTab === 'news' && (
-            <div className="bg-white p-6 border border-gray-200">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">뉴스 · 공시</h2>
+            <div className="bg-white p-3 sm:p-6 border border-gray-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-0">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-800">뉴스 · 공시</h2>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 w-full sm:w-auto"
                 >
                   <option value="all">전체</option>
                   <option value="regulation">금융규제</option>
@@ -150,22 +150,22 @@ export default function CountryDashboard() {
               </div>
 
               {loading ? (
-                <p className="text-center py-12 text-gray-500">로딩 중...</p>
+                <p className="text-center py-8 sm:py-12 text-gray-500 text-sm">로딩 중...</p>
               ) : news.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {news.map((item) => (
-                    <div key={item.id} className="border-b border-gray-200 pb-4 last:border-0">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-base font-medium flex-1 text-gray-900">{item.title}</h3>
-                        <span className={`text-xs px-2 py-1 ml-2 whitespace-nowrap ${getCategoryColor(item.category)}`}>
+                    <div key={item.id} className="border-b border-gray-200 pb-3 sm:pb-4 last:border-0">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-2 sm:gap-0">
+                        <h3 className="text-sm sm:text-base font-medium flex-1 text-gray-900 pr-0 sm:pr-2">{item.title}</h3>
+                        <span className={`text-xs px-2 py-1 whitespace-nowrap self-start ${getCategoryColor(item.category)}`}>
                           {getCategoryLabel(item.category)}
                         </span>
                       </div>
                       {item.content && (
-                        <p className="text-gray-600 text-sm mb-2 line-clamp-2">{item.content}</p>
+                        <p className="text-gray-600 text-xs sm:text-sm mb-2 line-clamp-2">{item.content}</p>
                       )}
-                      <div className="flex justify-between items-center text-xs text-gray-500">
-                        <span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs text-gray-500 gap-2 sm:gap-0">
+                        <span className="text-xs">
                           {item.source} • {item.published_at ? new Date(item.published_at).toLocaleDateString('ko-KR') : '날짜 미상'}
                         </span>
                         {item.url && (
@@ -173,7 +173,7 @@ export default function CountryDashboard() {
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-700 hover:text-blue-800"
+                            className="text-blue-700 hover:text-blue-800 text-xs whitespace-nowrap"
                           >
                             원문 보기 →
                           </a>
@@ -183,7 +183,7 @@ export default function CountryDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-12">뉴스가 없습니다.</p>
+                <p className="text-gray-500 text-center py-8 sm:py-12 text-sm">뉴스가 없습니다.</p>
               )}
             </div>
           )}
