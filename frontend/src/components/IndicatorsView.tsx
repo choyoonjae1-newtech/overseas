@@ -28,11 +28,25 @@ export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
 
   const getIndicatorName = (type: string) => {
     const names: Record<string, string> = {
-      exchange_rate: '환율',
+      exchange_rate: '환율 (USD 기준)',
+      black_market_rate: '암시장 환율',
       gdp_growth: 'GDP 성장률',
-      inflation: '인플레이션율',
+      gdp_growth_forecast: 'GDP 성장률 전망',
+      inflation: '소비자물가 상승률 (CPI)',
       interest_rate: '기준금리',
-      forex_reserve: '외환보유고',
+      forex_reserve: '외환보유액',
+      trade_balance: '무역수지',
+      exports: '수출',
+      imports: '수입',
+      unemployment_rate: '실업률',
+      industrial_production: '산업생산지수',
+      manufacturing_pmi: '제조업 PMI',
+      consumer_confidence: '소비자신뢰지수',
+      government_debt: '정부부채',
+      fdi: '외국인직접투자',
+      retail_sales: '소매판매',
+      auto_sales: '자동차판매',
+      tourist_arrivals: '외국인관광객',
     };
     return names[type] || type;
   };
@@ -48,76 +62,165 @@ export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
     return grouped;
   };
 
+  const getLatestIndicator = (type: string) => {
+    const typeIndicators = indicators.filter(ind => ind.indicator_type === type);
+    if (typeIndicators.length === 0) return null;
+    return typeIndicators.sort((a, b) =>
+      new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+    )[0];
+  };
+
+  const calculateKRWExchangeRate = () => {
+    const USD_TO_KRW = 1350; // 2026년 4월 기준 환율 (근사치)
+    const latestExchangeRate = getLatestIndicator('exchange_rate');
+
+    if (!latestExchangeRate) return null;
+
+    if (countryCode === 'MM') {
+      // MMK/USD -> KRW/MMK = KRW/USD / MMK/USD
+      const krwPerMMK = USD_TO_KRW / latestExchangeRate.value;
+      return {
+        value: krwPerMMK,
+        unit: 'KRW/MMK',
+        localCurrency: 'MMK',
+        usdRate: latestExchangeRate.value,
+      };
+    } else if (countryCode === 'ID') {
+      // IDR/USD -> KRW/IDR = KRW/USD / IDR/USD
+      const krwPerIDR = USD_TO_KRW / latestExchangeRate.value;
+      return {
+        value: krwPerIDR,
+        unit: 'KRW/IDR',
+        localCurrency: 'IDR',
+        usdRate: latestExchangeRate.value,
+      };
+    }
+    return null;
+  };
+
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">로딩 중...</p>
+      <div className="text-center py-8 sm:py-12">
+        <p className="text-gray-500 text-sm">로딩 중...</p>
       </div>
     );
   }
 
   const groupedIndicators = groupByType(indicators);
-
-  const getSourceUrl = (type: string, countryCode: string) => {
-    const sources: Record<string, Record<string, string>> = {
-      MM: {
-        exchange_rate: 'https://www.cbm.gov.mm/content/exchange-rate',
-        gdp_growth: 'https://data.worldbank.org/indicator/NY.GDP.MKTP.KD.ZG?locations=MM',
-        inflation: 'https://www.csostat.gov.mm/',
-        interest_rate: 'https://www.cbm.gov.mm/content/monetary-policy',
-        forex_reserve: 'https://www.cbm.gov.mm/content/foreign-reserve',
-      },
-      ID: {
-        exchange_rate: 'https://www.bi.go.id/en/statistik/informasi-kurs/transaksi-bi/default.aspx',
-        gdp_growth: 'https://www.bps.go.id/en/statistics-table/2/MTk3IzI=/gross-domestic-product.html',
-        inflation: 'https://www.bps.go.id/en/statistics-table/2/MTI3NiMy/inflation-rate.html',
-        interest_rate: 'https://www.bi.go.id/en/fungsi-utama/moneter/bi-7day-rr/default.aspx',
-        forex_reserve: 'https://www.bi.go.id/en/statistik/ekonomi-keuangan/sdsk/Default.aspx',
-      },
-    };
-    return sources[countryCode]?.[type] || '#';
-  };
+  const krwExchange = calculateKRWExchangeRate();
+  const latestGDP = getLatestIndicator('gdp_growth');
+  const latestInflation = getLatestIndicator('inflation');
+  const latestInterestRate = getLatestIndicator('interest_rate');
+  const latestTradeBalance = getLatestIndicator('trade_balance');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
+      {/* 주요 지표 요약 */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">주요 경제 지표 현황</h2>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* 원화 환율 */}
+          {krwExchange && (
+            <div className="bg-white p-3 sm:p-4 rounded border border-blue-200">
+              <p className="text-xs text-gray-600 mb-1">원화 환율</p>
+              <p className="text-lg sm:text-xl font-bold text-blue-700">
+                {krwExchange.value.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{krwExchange.unit}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                (1 USD = {krwExchange.usdRate.toLocaleString()} {krwExchange.localCurrency})
+              </p>
+            </div>
+          )}
+
+          {/* GDP 성장률 */}
+          {latestGDP && (
+            <div className="bg-white p-3 sm:p-4 rounded border border-blue-200">
+              <p className="text-xs text-gray-600 mb-1">GDP 성장률</p>
+              <p className="text-lg sm:text-xl font-bold text-green-700">
+                {latestGDP.value}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{latestGDP.period}</p>
+              <p className="text-xs text-gray-400 mt-1">{latestGDP.source}</p>
+            </div>
+          )}
+
+          {/* 인플레이션 */}
+          {latestInflation && (
+            <div className="bg-white p-3 sm:p-4 rounded border border-blue-200">
+              <p className="text-xs text-gray-600 mb-1">인플레이션</p>
+              <p className="text-lg sm:text-xl font-bold text-orange-700">
+                {latestInflation.value}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{latestInflation.period}</p>
+              <p className="text-xs text-gray-400 mt-1">{latestInflation.source}</p>
+            </div>
+          )}
+
+          {/* 기준금리 */}
+          {latestInterestRate && (
+            <div className="bg-white p-3 sm:p-4 rounded border border-blue-200">
+              <p className="text-xs text-gray-600 mb-1">기준금리</p>
+              <p className="text-lg sm:text-xl font-bold text-purple-700">
+                {latestInterestRate.value}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{latestInterestRate.period}</p>
+              <p className="text-xs text-gray-400 mt-1">{latestInterestRate.source}</p>
+            </div>
+          )}
+        </div>
+
+        {/* 무역수지 */}
+        {latestTradeBalance && (
+          <div className="mt-3 sm:mt-4 bg-white p-3 sm:p-4 rounded border border-blue-200">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">무역수지 ({latestTradeBalance.period})</p>
+                <p className={`text-lg sm:text-xl font-bold ${latestTradeBalance.value >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                  {latestTradeBalance.value >= 0 ? '+' : ''}{latestTradeBalance.value.toLocaleString()} {latestTradeBalance.unit}
+                </p>
+              </div>
+              <p className="text-xs text-gray-500">{latestTradeBalance.note}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 상세 지표 테이블 */}
       {Object.entries(groupedIndicators).map(([type, items]) => (
         <div key={type} className="bg-white border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-base font-semibold text-gray-800">{getIndicatorName(type)}</h3>
-            <a
-              href={getSourceUrl(type, countryCode)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-700 hover:text-blue-800 flex items-center gap-1"
-            >
-              데이터 출처 →
-            </a>
+          <div className="bg-gray-50 px-3 sm:px-6 py-3 border-b border-gray-200">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-800">{getIndicatorName(type)}</h3>
+            {items[0]?.source && (
+              <p className="text-xs text-gray-500 mt-1">출처: {items[0].source}</p>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">기간</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">수치</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">단위</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">출처</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">비고</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">기간</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">수치</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">단위</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase hidden sm:table-cell">비고</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.period}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.value.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.unit || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-700">
-                      {item.source || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{item.note || '-'}</td>
-                  </tr>
-                ))}
+                {items
+                  .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+                  .map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-medium">{item.period}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
+                        {item.value.toLocaleString()}
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">{item.unit || '-'}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">
+                        {item.note || '-'}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -125,8 +228,8 @@ export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
       ))}
 
       {indicators.length === 0 && (
-        <div className="text-center py-12 bg-white border border-gray-200">
-          <p className="text-gray-500">등록된 경제 지표가 없습니다.</p>
+        <div className="text-center py-8 sm:py-12 bg-white border border-gray-200">
+          <p className="text-gray-500 text-sm">등록된 경제 지표가 없습니다.</p>
         </div>
       )}
     </div>
