@@ -247,6 +247,110 @@ async def reset_and_populate_data(
         raise HTTPException(status_code=500, detail=f"데이터 초기화 실패: {str(e)}")
 
 
+@router.post("/clean-duplicates")
+async def clean_duplicate_data(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    중복 데이터 제거 (관리자 전용)
+    - 뉴스 중복 제거 (제목 + 국가 기준)
+    - 이벤트 중복 제거 (제목 + 날짜 + 국가 기준)
+    - 경제 지표 중복 제거 (country_id + indicator_type + period 기준)
+    """
+    try:
+        logger.info("🔍 중복 데이터 제거 시작...")
+
+        # 뉴스 중복 제거
+        news_list = db.query(News).all()
+        news_seen = {}
+        news_to_delete = []
+
+        for news in news_list:
+            key = (news.title, news.country_id)
+            if key in news_seen:
+                existing = news_seen[key]
+                if news.created_at > existing.created_at:
+                    news_to_delete.append(existing)
+                    news_seen[key] = news
+                else:
+                    news_to_delete.append(news)
+            else:
+                news_seen[key] = news
+
+        for news in news_to_delete:
+            db.delete(news)
+
+        # 이벤트 중복 제거
+        events_list = db.query(Event).all()
+        event_seen = {}
+        event_to_delete = []
+
+        for event in events_list:
+            key = (event.title, event.event_date, event.country_id)
+            if key in event_seen:
+                existing = event_seen[key]
+                if event.created_at > existing.created_at:
+                    event_to_delete.append(existing)
+                    event_seen[key] = event
+                else:
+                    event_to_delete.append(event)
+            else:
+                event_seen[key] = event
+
+        for event in event_to_delete:
+            db.delete(event)
+
+        # 경제 지표 중복 제거
+        indicators_list = db.query(EconomicIndicator).all()
+        indicator_seen = {}
+        indicator_to_delete = []
+
+        for indicator in indicators_list:
+            key = (indicator.country_id, indicator.indicator_type, indicator.period)
+            if key in indicator_seen:
+                existing = indicator_seen[key]
+                if indicator.recorded_at > existing.recorded_at:
+                    indicator_to_delete.append(existing)
+                    indicator_seen[key] = indicator
+                else:
+                    indicator_to_delete.append(indicator)
+            else:
+                indicator_seen[key] = indicator
+
+        for indicator in indicator_to_delete:
+            db.delete(indicator)
+
+        db.commit()
+
+        # 결과
+        news_remaining = db.query(News).count()
+        events_remaining = db.query(Event).count()
+        indicators_remaining = db.query(EconomicIndicator).count()
+
+        logger.info(f"✅ 중복 제거 완료: 뉴스 {len(news_to_delete)}개, 이벤트 {len(event_to_delete)}개, 지표 {len(indicator_to_delete)}개")
+
+        return {
+            "success": True,
+            "message": f"중복 데이터 제거 완료 (뉴스 {len(news_to_delete)}개, 이벤트 {len(event_to_delete)}개, 지표 {len(indicator_to_delete)}개)",
+            "removed": {
+                "news": len(news_to_delete),
+                "events": len(event_to_delete),
+                "indicators": len(indicator_to_delete)
+            },
+            "remaining": {
+                "news": news_remaining,
+                "events": events_remaining,
+                "indicators": indicators_remaining
+            }
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"중복 제거 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"중복 제거 실패: {str(e)}")
+
+
 @router.post("/collect-real-indicators")
 async def collect_real_economic_indicators(
     current_user: User = Depends(get_current_admin),

@@ -37,4 +37,10 @@ export const schedulerAPI = {
     const response = await client.post('/api/admin/populate-sample-indicators');
     return response.data;
   },
+
+  // 중복 데이터 제거
+  cleanDuplicates: async (): Promise<any> => {
+    const response = await client.post('/api/admin/clean-duplicates');
+    return response.data;
+  },
 };

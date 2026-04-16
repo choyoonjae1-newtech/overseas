@@ -14,6 +14,7 @@ export default function SchedulerManagement() {
   const [triggeringIndicators, setTriggeringIndicators] = useState(false);
   const [collectingReal, setCollectingReal] = useState(false);
   const [populatingSample, setPopulatingSample] = useState(false);
+  const [cleaningDuplicates, setCleaningDuplicates] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -135,6 +136,29 @@ export default function SchedulerManagement() {
       alert(`❌ 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
       setPopulatingSample(false);
+    }
+  };
+
+  const handleCleanDuplicates = async () => {
+    if (!confirm('🧹 중복 데이터를 제거하시겠습니까?\n\n동일한 뉴스, 이벤트, 경제 지표의 중복을 제거합니다.\n(최신 데이터만 유지)')) return;
+
+    setCleaningDuplicates(true);
+    try {
+      const result = await schedulerAPI.cleanDuplicates();
+      alert(`✅ ${result.message}\n\n` +
+            `제거된 데이터:\n` +
+            `- 뉴스: ${result.removed.news}개\n` +
+            `- 이벤트: ${result.removed.events}개\n` +
+            `- 경제 지표: ${result.removed.indicators}개\n\n` +
+            `남은 데이터:\n` +
+            `- 뉴스: ${result.remaining.news}개\n` +
+            `- 이벤트: ${result.remaining.events}개\n` +
+            `- 경제 지표: ${result.remaining.indicators}개`);
+    } catch (error: any) {
+      console.error('중복 제거 실패:', error);
+      alert(`❌ 실패: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setCleaningDuplicates(false);
     }
   };
 
@@ -310,6 +334,38 @@ export default function SchedulerManagement() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* 데이터 정리 */}
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold mb-2">🧹 데이터 정리</h2>
+          <p className="text-gray-600 text-sm">중복된 데이터를 제거하여 데이터베이스를 깨끗하게 유지합니다.</p>
+        </div>
+
+        <div className="border-2 border-orange-200 bg-orange-50 rounded-lg p-5">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🧹</span>
+                <h3 className="font-bold text-xl text-orange-900">중복 데이터 제거</h3>
+              </div>
+              <p className="text-orange-800 text-sm mb-3">
+                동일한 뉴스, 이벤트, 경제 지표의 중복을 제거합니다. 최신 데이터만 유지됩니다.
+              </p>
+              <div className="bg-orange-100 border border-orange-300 rounded p-2 text-sm text-orange-900">
+                <strong>💡 팁:</strong> 데이터가 여러 번 표시되는 경우 이 버튼을 클릭하세요!
+              </div>
+            </div>
+            <button
+              onClick={handleCleanDuplicates}
+              disabled={cleaningDuplicates}
+              className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 font-semibold whitespace-nowrap ml-4"
+            >
+              {cleaningDuplicates ? '제거 중...' : '중복 제거'}
+            </button>
+          </div>
         </div>
       </div>
 
