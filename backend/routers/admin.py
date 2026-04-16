@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models import User, Country, News, Event, EconomicIndicator
-from routers.auth import get_current_admin
+from core.security import get_current_admin
 import asyncio
 from datetime import datetime, date
 from services.indicators_collector import indicators_collector
