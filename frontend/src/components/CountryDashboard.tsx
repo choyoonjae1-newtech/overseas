@@ -119,7 +119,17 @@ export default function CountryDashboard() {
         <div>
           {activeTab === 'schedule' && (
             <div className="bg-white p-3 sm:p-6 border border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-gray-800">일정 캘린더</h2>
+              <div className="mb-4 sm:mb-6">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">일정 캘린더</h2>
+                {!loading && events.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>최종 업데이트: {new Date().toLocaleDateString('ko-KR')} (실시간 연동 아님)</span>
+                  </div>
+                )}
+              </div>
               {loading ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500">로딩 중...</p>
@@ -134,19 +144,29 @@ export default function CountryDashboard() {
 
           {activeTab === 'news' && (
             <div className="bg-white p-3 sm:p-6 border border-gray-200">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-0">
-                <h2 className="text-base sm:text-lg font-semibold text-gray-800">뉴스 · 공시</h2>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 w-full sm:w-auto"
-                >
-                  <option value="all">전체</option>
-                  <option value="regulation">금융규제</option>
-                  <option value="geopolitical">지정학적 리스크</option>
-                  <option value="economic">경제</option>
-                  <option value="other">기타</option>
-                </select>
+              <div className="mb-4 sm:mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-2">
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-800">뉴스 · 공시</h2>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 w-full sm:w-auto"
+                  >
+                    <option value="all">전체</option>
+                    <option value="regulation">금융규제</option>
+                    <option value="geopolitical">지정학적 리스크</option>
+                    <option value="economic">경제</option>
+                    <option value="other">기타</option>
+                  </select>
+                </div>
+                {!loading && news.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>최종 업데이트: {new Date().toLocaleDateString('ko-KR')} (실시간 연동 아님)</span>
+                  </div>
+                )}
               </div>
 
               {loading ? (
