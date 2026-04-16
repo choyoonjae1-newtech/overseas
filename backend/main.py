@@ -20,6 +20,11 @@ app = FastAPI(
 async def startup_event():
     """서버 시작 시 실행"""
     print("🚀 서버 시작 중...")
+
+    # 데이터베이스 초기화 (테이블 생성 및 초기 데이터)
+    from init_db import init_database
+    init_database()
+
     scheduler_service.initialize_jobs()
     print("✅ 스케줄러 초기화 완료")
 
