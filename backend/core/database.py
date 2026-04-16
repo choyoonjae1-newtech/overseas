@@ -3,10 +3,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from core.config import settings
 
-# SQLite 엔진 생성
+# 데이터베이스 엔진 생성
+# SQLite일 때만 check_same_thread 옵션 추가
+connect_args = {}
+if settings.DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # SQLite only
+    connect_args=connect_args
 )
 
 # 세션 팩토리
