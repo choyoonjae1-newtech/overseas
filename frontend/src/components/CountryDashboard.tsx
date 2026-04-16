@@ -168,14 +168,16 @@ export default function CountryDashboard() {
                         <span>
                           {item.source} • {item.published_at ? new Date(item.published_at).toLocaleDateString('ko-KR') : '날짜 미상'}
                         </span>
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-700 hover:text-blue-800"
-                        >
-                          원문 보기 →
-                        </a>
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-700 hover:text-blue-800"
+                          >
+                            원문 보기 →
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}
