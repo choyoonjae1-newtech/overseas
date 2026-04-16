@@ -12,6 +12,8 @@ export default function SchedulerManagement() {
   }>({ interval_hours: 3, keywords: '' });
   const [triggering, setTriggering] = useState<string | null>(null);
   const [triggeringIndicators, setTriggeringIndicators] = useState(false);
+  const [collectingReal, setCollectingReal] = useState(false);
+  const [populatingSample, setPopulatingSample] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -95,6 +97,44 @@ export default function SchedulerManagement() {
       alert(`수집 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
       setTriggeringIndicators(false);
+    }
+  };
+
+  const handleCollectRealData = async () => {
+    if (!confirm('⭐ 실제 데이터를 수집하시겠습니까?\n\nWorld Bank API 및 Exchange Rate API에서 실제 경제 지표를 가져옵니다.')) return;
+
+    setCollectingReal(true);
+    try {
+      const result = await schedulerAPI.collectRealIndicators();
+      alert(`✅ ${result.message}\n\n` +
+            `수집된 지표: ${result.data.collected}개\n` +
+            `미얀마: ${result.data.myanmar_total}개\n` +
+            `인도네시아: ${result.data.indonesia_total}개\n\n` +
+            `출처: ${result.sources.join(', ')}`);
+    } catch (error: any) {
+      console.error('실제 데이터 수집 실패:', error);
+      alert(`❌ 수집 실패: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setCollectingReal(false);
+    }
+  };
+
+  const handlePopulateSampleData = async () => {
+    if (!confirm('⚠️ 샘플 데이터를 추가하시겠습니까?\n\n이 데이터는 하드코딩된 샘플 데이터이며 실제 데이터가 아닙니다.\n\n프로덕션 환경에서는 "실제 데이터 수집"을 사용하세요.')) return;
+
+    setPopulatingSample(true);
+    try {
+      const result = await schedulerAPI.populateSampleIndicators();
+      alert(`⚠️ ${result.message}\n\n` +
+            `미얀마: ${result.data.myanmar}개\n` +
+            `인도네시아: ${result.data.indonesia}개\n` +
+            `총합: ${result.data.total}개\n\n` +
+            `${result.warning}`);
+    } catch (error: any) {
+      console.error('샘플 데이터 추가 실패:', error);
+      alert(`❌ 실패: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setPopulatingSample(false);
     }
   };
 
@@ -275,49 +315,108 @@ export default function SchedulerManagement() {
 
       {/* 경제 지표 수집 관리 */}
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">경제 지표 자동 수집</h2>
-            <p className="text-gray-600 text-sm">매일 오전 9시에 자동으로 경제 지표를 수집합니다.</p>
-          </div>
-          <button
-            onClick={handleTriggerIndicators}
-            disabled={triggeringIndicators}
-            className="px-6 py-3 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-400 font-semibold"
-          >
-            {triggeringIndicators ? '수집 중...' : '지금 수집'}
-          </button>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-2">경제 지표 데이터 관리</h2>
+          <p className="text-gray-600 text-sm">실제 API에서 데이터를 수집하거나 테스트용 샘플 데이터를 사용할 수 있습니다.</p>
         </div>
 
-        <div className="border rounded-lg p-4">
-          <h3 className="font-semibold text-gray-800 mb-3">수집 항목</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <span className="text-sm">환율 (USD 기준)</span>
+        {/* 실제 데이터 수집 섹션 */}
+        <div className="border-2 border-green-200 bg-green-50 rounded-lg p-5 mb-4">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">⭐</span>
+                <h3 className="font-bold text-xl text-green-900">실제 데이터 수집 (권장)</h3>
+              </div>
+              <p className="text-green-800 text-sm mb-3">
+                World Bank API, Exchange Rate API 등에서 실제 경제 지표를 가져옵니다.
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>환율 (실시간)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>GDP 성장률</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>인플레이션</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>무역수지</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>실업률</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>외환보유액</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <span className="text-sm">GDP 성장률 (%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <span className="text-sm">인플레이션율 (%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <span className="text-sm">기준금리 (%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <span className="text-sm">외환보유고 (billion USD)</span>
-            </div>
+            <button
+              onClick={handleCollectRealData}
+              disabled={collectingReal}
+              className="px-6 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:bg-gray-400 font-semibold whitespace-nowrap ml-4 shadow-lg"
+            >
+              {collectingReal ? '수집 중...' : '실제 데이터 수집'}
+            </button>
           </div>
-
-          <div className="mt-4 p-3 bg-gray-50 rounded">
-            <p className="text-sm text-gray-700">
-              <strong>데이터 소스:</strong> World Bank API, 각국 중앙은행 공식 사이트
+          <div className="mt-3 p-3 bg-white rounded border border-green-300">
+            <p className="text-sm text-green-900">
+              <strong>📡 데이터 출처:</strong> World Bank API, Exchange Rate API
             </p>
+          </div>
+        </div>
+
+        {/* 샘플 데이터 섹션 */}
+        <div className="border-2 border-yellow-300 bg-yellow-50 rounded-lg p-5 mb-4">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">⚠️</span>
+                <h3 className="font-bold text-xl text-yellow-900">샘플 데이터 (데모/테스트용)</h3>
+              </div>
+              <p className="text-yellow-800 text-sm mb-2">
+                하드코딩된 샘플 데이터입니다. <strong>실제 경제 상황을 반영하지 않습니다.</strong>
+              </p>
+              <div className="bg-yellow-100 border border-yellow-400 rounded p-2 text-sm text-yellow-900">
+                <strong>⚠️ 경고:</strong> 프로덕션 환경이나 업무 담당자에게 보여줄 때는 사용하지 마세요!
+              </div>
+            </div>
+            <button
+              onClick={handlePopulateSampleData}
+              disabled={populatingSample}
+              className="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-gray-400 font-semibold whitespace-nowrap ml-4"
+            >
+              {populatingSample ? '추가 중...' : '샘플 데이터 추가'}
+            </button>
+          </div>
+        </div>
+
+        {/* 자동 수집 스케줄 */}
+        <div className="border rounded-lg p-4 bg-blue-50">
+          <h3 className="font-semibold text-blue-900 mb-3">자동 수집 스케줄</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-800">
+                매일 오전 9시에 자동으로 실제 경제 지표를 수집합니다.
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                (백엔드 스케줄러가 실행 중이어야 합니다)
+              </p>
+            </div>
+            <button
+              onClick={handleTriggerIndicators}
+              disabled={triggeringIndicators}
+              className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:bg-gray-400 text-sm"
+            >
+              {triggeringIndicators ? '수집 중...' : '지금 수집'}
+            </button>
           </div>
         </div>
       </div>

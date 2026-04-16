@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from core.database import Base
@@ -7,6 +7,9 @@ from core.database import Base
 class EconomicIndicator(Base):
     """거시경제 지표 모델"""
     __tablename__ = "economic_indicators"
+    __table_args__ = (
+        UniqueConstraint('country_id', 'indicator_type', 'period', name='uq_indicator_country_type_period'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)

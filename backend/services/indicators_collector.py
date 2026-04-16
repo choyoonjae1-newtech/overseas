@@ -1,9 +1,10 @@
 """
-경제 지표 자동 수집 서비스
+경제 지표 자동 수집 서비스 - 실제 데이터 소스 연동
 """
 import httpx
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from models.country import Country
 from models.indicator import EconomicIndicator
 from core.database import SessionLocal
@@ -13,24 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 class IndicatorsCollector:
-    """경제 지표 수집기"""
+    """경제 지표 수집기 - 실제 데이터 소스에서 수집"""
 
-    # 데이터 소스 URL
-    SOURCES = {
-        "MM": {
-            "exchange_rate": "https://www.cbm.gov.mm/content/exchange-rate",
-            "gdp_growth": "https://data.worldbank.org/indicator/NY.GDP.MKTP.KD.ZG?locations=MM",
-            "inflation": "https://www.csostat.gov.mm/",
-            "interest_rate": "https://www.cbm.gov.mm/content/monetary-policy",
-            "forex_reserve": "https://www.cbm.gov.mm/content/foreign-reserve"
-        },
-        "ID": {
-            "exchange_rate": "https://www.bi.go.id/en/statistik/informasi-kurs/transaksi-bi/default.aspx",
-            "gdp_growth": "https://www.bps.go.id/en/statistics-table/2/MTk3IzI=/gross-domestic-product.html",
-            "inflation": "https://www.bps.go.id/en/statistics-table/2/MTI3NiMy/inflation-rate.html",
-            "interest_rate": "https://www.bi.go.id/en/fungsi-utama/moneter/bi-7day-rr/default.aspx",
-            "forex_reserve": "https://www.bi.go.id/en/statistik/ekonomi-keuangan/sdsk/Default.aspx"
-        }
+    # 데이터 소스 매핑
+    WORLD_BANK_COUNTRY_CODES = {
+        "MM": "MMR",  # Myanmar
+        "ID": "IDN"   # Indonesia
+    }
+
+    # World Bank API 지표 코드
+    WB_INDICATORS = {
+        "gdp_growth": "NY.GDP.MKTP.KD.ZG",  # GDP growth (annual %)
+        "inflation": "FP.CPI.TOTL.ZG",  # Inflation, consumer prices (annual %)
+        "unemployment_rate": "SL.UEM.TOTL.ZS",  # Unemployment, total (% of labor force)
+        "exports": "NE.EXP.GNFS.CD",  # Exports of goods and services (current US$)
+        "imports": "NE.IMP.GNFS.CD",  # Imports of goods and services (current US$)
+        "forex_reserve": "FI.RES.TOTL.CD",  # Total reserves (current US$)
+        "trade_balance": "NE.RSB.GNFS.CD",  # External balance on goods and services (current US$)
     }
 
     async def collect_all_indicators(self):
@@ -38,13 +38,17 @@ class IndicatorsCollector:
         db = SessionLocal()
         try:
             countries = db.query(Country).all()
+            total_collected = 0
             for country in countries:
-                await self.collect_country_indicators(country.code, db)
+                count = await self.collect_country_indicators(country.code, db)
+                total_collected += count
+            logger.info(f"✅ 총 {total_collected}개 경제 지표 수집 완료")
+            return total_collected
         finally:
             db.close()
 
     async def collect_country_indicators(self, country_code: str, db: Session = None):
-        """특정 국가의 경제 지표 수집"""
+        """특정 국가의 경제 지표 수집 (실제 데이터)"""
         should_close = False
         if db is None:
             db = SessionLocal()
@@ -54,50 +58,50 @@ class IndicatorsCollector:
             country = db.query(Country).filter(Country.code == country_code).first()
             if not country:
                 logger.error(f"국가를 찾을 수 없습니다: {country_code}")
-                return
+                return 0
 
-            logger.info(f"📊 [{country_code}] 경제 지표 수집 시작...")
-
-            # World Bank API를 통한 GDP 성장률 수집 시도
+            logger.info(f"📊 [{country.name_ko}] 경제 지표 수집 시작...")
             collected_count = 0
 
-            # GDP 성장률
-            gdp_data = await self._fetch_worldbank_gdp(country_code)
-            if gdp_data:
-                collected_count += await self._save_indicator(
-                    db, country.id, "gdp_growth", gdp_data,
-                    self.SOURCES.get(country_code, {}).get("gdp_growth", "World Bank")
-                )
+            # World Bank API에서 여러 지표 수집
+            for indicator_type, wb_code in self.WB_INDICATORS.items():
+                data_list = await self._fetch_worldbank_indicator(country_code, indicator_type, wb_code)
+                for data in data_list:
+                    saved = await self._save_indicator(db, country.id, indicator_type, data)
+                    if saved:
+                        collected_count += 1
 
-            # 환율 (실제 구현 시 각 중앙은행 API 사용)
-            # 현재는 mock 데이터로 대체
-            logger.info(f"  ℹ️  실제 API 연동은 추후 구현 예정 (현재는 수동 데이터 사용)")
+            # 환율 데이터 (Open Exchange Rates API - 실제 환율 데이터)
+            exchange_data = await self._fetch_exchange_rate(country_code)
+            if exchange_data:
+                saved = await self._save_indicator(db, country.id, "exchange_rate", exchange_data)
+                if saved:
+                    collected_count += 1
 
-            logger.info(f"✅ [{country_code}] 경제 지표 {collected_count}개 수집 완료")
+            logger.info(f"✅ [{country.name_ko}] {collected_count}개 경제 지표 수집 완료")
+            return collected_count
 
         except Exception as e:
             logger.error(f"❌ [{country_code}] 경제 지표 수집 실패: {e}")
+            return 0
         finally:
             if should_close:
                 db.close()
 
-    async def _fetch_worldbank_gdp(self, country_code: str):
-        """World Bank API로 GDP 성장률 조회"""
+    async def _fetch_worldbank_indicator(self, country_code: str, indicator_type: str, wb_code: str):
+        """World Bank API로 지표 조회"""
         try:
-            # World Bank API 국가 코드 매핑
-            wb_codes = {"MM": "MMR", "ID": "IDN"}
-            wb_code = wb_codes.get(country_code)
+            wb_country_code = self.WORLD_BANK_COUNTRY_CODES.get(country_code)
+            if not wb_country_code:
+                return []
 
-            if not wb_code:
-                return None
-
-            # 최근 5년 데이터 조회
+            # 최근 10년 데이터 조회
             current_year = datetime.now().year
-            url = f"https://api.worldbank.org/v2/country/{wb_code}/indicator/NY.GDP.MKTP.KD.ZG"
+            url = f"https://api.worldbank.org/v2/country/{wb_country_code}/indicator/{wb_code}"
             params = {
                 "format": "json",
-                "date": f"{current_year-5}:{current_year}",
-                "per_page": 10
+                "date": f"{current_year-10}:{current_year}",
+                "per_page": 100
             }
 
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -106,23 +110,102 @@ class IndicatorsCollector:
                 if response.status_code == 200:
                     data = response.json()
                     if len(data) > 1 and data[1]:
-                        # 가장 최근 데이터
-                        latest = data[1][0]
-                        if latest.get("value"):
+                        results = []
+                        for item in data[1]:
+                            if item.get("value") is not None:
+                                # 지표 타입에 따라 단위 결정
+                                unit = self._get_unit(indicator_type)
+
+                                # 값 변환 (필요시)
+                                value = float(item["value"])
+                                if indicator_type in ["exports", "imports", "forex_reserve", "trade_balance"]:
+                                    # 달러 단위를 백만 달러로 변환
+                                    value = value / 1_000_000
+
+                                results.append({
+                                    "value": round(value, 2),
+                                    "period": str(item["date"]),
+                                    "unit": unit,
+                                    "source": "World Bank"
+                                })
+                        logger.info(f"  ✓ World Bank에서 {indicator_type} {len(results)}개 항목 수집")
+                        return results
+        except Exception as e:
+            logger.warning(f"World Bank API 조회 실패 ({indicator_type}): {e}")
+
+        return []
+
+    async def _fetch_exchange_rate(self, country_code: str):
+        """환율 데이터 조회 (currencyapi.com 무료 API 사용)"""
+        try:
+            # 국가별 통화 코드
+            currency_codes = {
+                "MM": "MMK",  # Myanmar Kyat
+                "ID": "IDR"   # Indonesian Rupiah
+            }
+
+            currency = currency_codes.get(country_code)
+            if not currency:
+                return None
+
+            # currencyapi.com 무료 API (월 300회 무료)
+            # 실제 사용 시 환경변수에서 API 키를 가져와야 함
+            # 여기서는 데모용으로 하드코딩 (실제로는 .env에서 로드)
+
+            # 대체: Exchange Rate API (무료, API 키 불필요)
+            url = f"https://open.er-api.com/v6/latest/USD"
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(url)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("result") == "success":
+                        rates = data.get("rates", {})
+                        rate = rates.get(currency)
+
+                        if rate:
+                            current_date = datetime.now()
+                            period = current_date.strftime("%Y-%m")
+
+                            logger.info(f"  ✓ 환율 데이터 수집: 1 USD = {rate} {currency}")
                             return {
-                                "value": round(float(latest["value"]), 2),
-                                "period": str(latest["date"]),
-                                "unit": "%",
-                                "source": "World Bank"
+                                "value": round(rate, 2),
+                                "period": period,
+                                "unit": f"{currency}/USD",
+                                "source": "Exchange Rate API"
                             }
         except Exception as e:
-            logger.warning(f"World Bank API 조회 실패: {e}")
+            logger.warning(f"환율 API 조회 실패: {e}")
 
         return None
 
+    def _get_unit(self, indicator_type: str) -> str:
+        """지표 타입에 따른 단위 반환"""
+        units = {
+            "gdp_growth": "%",
+            "inflation": "%",
+            "unemployment_rate": "%",
+            "interest_rate": "%",
+            "exports": "million USD",
+            "imports": "million USD",
+            "forex_reserve": "million USD",
+            "trade_balance": "million USD",
+            "manufacturing_pmi": "Index",
+            "consumer_confidence": "Index",
+            "industrial_production": "Index",
+            "government_debt": "% of GDP",
+            "fdi": "million USD",
+            "retail_sales": "% YoY",
+            "auto_sales": "units",
+            "tourist_arrivals": "million",
+            "black_market_rate": "MMK/USD" if indicator_type == "black_market_rate" else "IDR/USD"
+        }
+        return units.get(indicator_type, "")
+
     async def _save_indicator(self, db: Session, country_id: int, indicator_type: str,
-                             data: dict, source_url: str) -> int:
-        """지표 데이터 저장"""
+                             data: dict) -> bool:
+        """지표 데이터 저장 (중복 방지)"""
         try:
             # 중복 확인
             existing = db.query(EconomicIndicator).filter(
@@ -132,13 +215,15 @@ class IndicatorsCollector:
             ).first()
 
             if existing:
-                # 업데이트
+                # 기존 데이터 업데이트
                 existing.value = data["value"]
                 existing.unit = data.get("unit")
                 existing.source = data.get("source")
-                existing.note = f"자동 수집 - {source_url}"
+                existing.recorded_at = datetime.now()
+                existing.note = f"자동 수집 업데이트 - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 db.commit()
-                return 1
+                logger.debug(f"  ↻ 지표 업데이트: {indicator_type} {data['period']}")
+                return True
             else:
                 # 신규 생성
                 indicator = EconomicIndicator(
@@ -149,15 +234,21 @@ class IndicatorsCollector:
                     period=data["period"],
                     recorded_at=datetime.now(),
                     source=data.get("source"),
-                    note=f"자동 수집 - {source_url}"
+                    note=f"자동 수집 - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 )
                 db.add(indicator)
                 db.commit()
-                return 1
+                logger.debug(f"  + 신규 지표 추가: {indicator_type} {data['period']}")
+                return True
+        except IntegrityError as e:
+            # 유니크 제약 위반 (동시성 문제)
+            db.rollback()
+            logger.warning(f"  ⚠ 중복 데이터 감지 (무시): {indicator_type} {data['period']}")
+            return False
         except Exception as e:
             logger.error(f"지표 저장 실패: {e}")
             db.rollback()
-            return 0
+            return False
 
 
 # 싱글톤 인스턴스

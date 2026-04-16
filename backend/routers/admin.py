@@ -7,8 +7,11 @@ from core.database import get_db
 from models import User, Country, News, Event, EconomicIndicator
 from core.security import get_current_admin
 import asyncio
+import logging
 from datetime import datetime, date
 from services.indicators_collector import indicators_collector
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -244,14 +247,58 @@ async def reset_and_populate_data(
         raise HTTPException(status_code=500, detail=f"데이터 초기화 실패: {str(e)}")
 
 
-@router.post("/populate-indicators")
-async def populate_economic_indicators(
+@router.post("/collect-real-indicators")
+async def collect_real_economic_indicators(
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
-    경제 지표 데이터 수동 추가 (관리자 전용)
-    - 미얀마와 인도네시아의 2026년 1~4월 상세 경제 지표 75개 추가
+    실제 경제 지표 수집 (관리자 전용) - 프로덕션용
+    - World Bank API, Exchange Rate API 등에서 실제 데이터 수집
+    - GDP, 인플레이션, 실업률, 무역수지, 환율 등
+    - 중복 데이터는 자동으로 업데이트됨
+    """
+    try:
+        logger.info("🔄 실제 경제 지표 수집 시작...")
+        collected_count = await indicators_collector.collect_all_indicators()
+
+        mm_country = db.query(Country).filter(Country.code == "MM").first()
+        id_country = db.query(Country).filter(Country.code == "ID").first()
+
+        mm_count = db.query(EconomicIndicator).filter(EconomicIndicator.country_id == mm_country.id).count()
+        id_count = db.query(EconomicIndicator).filter(EconomicIndicator.country_id == id_country.id).count()
+        total_count = db.query(EconomicIndicator).count()
+
+        return {
+            "success": True,
+            "message": f"실제 경제 지표 {collected_count}개 수집 완료",
+            "data": {
+                "collected": collected_count,
+                "myanmar_total": mm_count,
+                "indonesia_total": id_count,
+                "total": total_count
+            },
+            "sources": [
+                "World Bank API",
+                "Exchange Rate API"
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"실제 지표 수집 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"경제 지표 수집 실패: {str(e)}")
+
+
+@router.post("/populate-sample-indicators")
+async def populate_sample_indicators(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    ⚠️ 샘플 경제 지표 데이터 추가 (관리자 전용) - 데모/테스트용
+    - 하드코딩된 샘플 데이터 75개 추가
+    - ⚠️ 경고: 이 데이터는 실제 데이터가 아닙니다!
+    - 프로덕션 환경에서는 /collect-real-indicators 사용을 권장
     """
     try:
         # 기존 경제 지표 삭제
@@ -285,7 +332,8 @@ async def populate_economic_indicators(
 
         return {
             "success": True,
-            "message": "경제 지표 데이터 추가 완료",
+            "message": "⚠️ 샘플 경제 지표 데이터 추가 완료 (실제 데이터 아님)",
+            "warning": "이 데이터는 하드코딩된 샘플 데이터입니다. 프로덕션 환경에서는 /collect-real-indicators를 사용하세요.",
             "data": {
                 "myanmar": mm_count,
                 "indonesia": id_count,
@@ -295,7 +343,7 @@ async def populate_economic_indicators(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"경제 지표 추가 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"샘플 지표 추가 실패: {str(e)}")
 
 
 def populate_myanmar_indicators_data(country_id: int) -> list:

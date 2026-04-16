@@ -20,9 +20,21 @@ export const schedulerAPI = {
     return response.data;
   },
 
-  // 수동 경제 지표 수집 트리거
+  // 수동 경제 지표 수집 트리거 (기존 - 스케줄러 통해)
   triggerIndicatorsCollection: async (): Promise<TriggerResponse> => {
     const response = await client.post('/api/scheduler/trigger-indicators');
+    return response.data;
+  },
+
+  // 실제 경제 지표 수집 (프로덕션용 - World Bank API 등)
+  collectRealIndicators: async (): Promise<any> => {
+    const response = await client.post('/api/admin/collect-real-indicators');
+    return response.data;
+  },
+
+  // 샘플 경제 지표 생성 (데모/테스트용)
+  populateSampleIndicators: async (): Promise<any> => {
+    const response = await client.post('/api/admin/populate-sample-indicators');
     return response.data;
   },
 };
