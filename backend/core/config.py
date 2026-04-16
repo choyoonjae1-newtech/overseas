@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     CALENDARIFIC_API_KEY: str = ""
 
     # CORS (comma-separated string in .env, converted to list)
-    CORS_ORIGINS_STR: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     # Admin
     ADMIN_USERNAME: str = "admin"
@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "whdbswo12#"
 
     @property
-    def CORS_ORIGINS(self) -> List[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS_STR.split(',')]
+    def CORS_ORIGINS_LIST(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(',')]
 
     class Config:
         env_file = ".env"
