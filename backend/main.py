@@ -2,8 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import engine, Base
-from routers import auth, users, countries, news, events, scheduler, indicators, chat
+from routers import auth, users, countries, news, events, scheduler, indicators
 from services.scheduler_service import scheduler_service
+
+# Chat router는 선택적으로 import (anthropic 패키지 필요)
+try:
+    from routers import chat
+    CHAT_AVAILABLE = True
+except ImportError:
+    CHAT_AVAILABLE = False
+    print("⚠️  Chat service unavailable: anthropic package not installed")
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -53,7 +61,13 @@ app.include_router(news.router)
 app.include_router(events.router)
 app.include_router(scheduler.router)
 app.include_router(indicators.router)
-app.include_router(chat.router)
+
+# Chat router는 선택적으로 등록
+if CHAT_AVAILABLE:
+    app.include_router(chat.router)
+    print("✅ Chat service enabled")
+else:
+    print("⚠️  Chat service disabled: Install 'anthropic' package to enable")
 
 # 관리자 라우터
 from routers import admin
