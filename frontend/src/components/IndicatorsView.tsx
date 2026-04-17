@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { indicatorsAPI } from '../api/indicators';
 import { EconomicIndicator } from '../types/indicator';
+import IndicatorChart from './IndicatorChart';
 
 interface IndicatorsViewProps {
   countryCode: string;
@@ -9,6 +10,7 @@ interface IndicatorsViewProps {
 export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
   const [indicators, setIndicators] = useState<EconomicIndicator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadIndicators();
@@ -49,6 +51,18 @@ export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
       tourist_arrivals: '외국인관광객',
     };
     return names[type] || type;
+  };
+
+  // 핵심 지표 vs 상세 지표 구분
+  const coreIndicators = ['exchange_rate', 'gdp_growth', 'inflation', 'interest_rate', 'trade_balance'];
+
+  const isCoreIndicator = (type: string) => coreIndicators.includes(type);
+
+  const toggleSection = (type: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [type]: !prev[type]
+    }));
   };
 
   const groupByType = (indicators: EconomicIndicator[]) => {
@@ -217,45 +231,203 @@ export default function IndicatorsView({ countryCode }: IndicatorsViewProps) {
         )}
       </div>
 
-      {/* 상세 지표 테이블 */}
-      {Object.entries(groupedIndicators).map(([type, items]) => (
-        <div key={type} className="bg-white border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-3 sm:px-6 py-3 border-b border-gray-200">
-            <h3 className="text-sm sm:text-base font-semibold text-gray-800">{getIndicatorName(type)}</h3>
-            {items[0]?.source && (
-              <p className="text-xs text-gray-500 mt-1">출처: {items[0].source}</p>
+      {/* 차트 시각화 */}
+      {indicators.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">📊 지표 추이 차트</h2>
+            <span className="text-xs text-gray-500">(시계열 데이터)</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 환율 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'exchange_rate') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="exchange_rate"
+                indicatorName="환율 (USD 기준)"
+                chartType="line"
+              />
+            )}
+
+            {/* GDP 성장률 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'gdp_growth') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="gdp_growth"
+                indicatorName="GDP 성장률"
+                chartType="bar"
+              />
+            )}
+
+            {/* 인플레이션 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'inflation') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="inflation"
+                indicatorName="소비자물가 상승률 (CPI)"
+                chartType="line"
+              />
+            )}
+
+            {/* 무역수지 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'trade_balance') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="trade_balance"
+                indicatorName="무역수지"
+                chartType="bar"
+              />
+            )}
+
+            {/* 실업률 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'unemployment_rate') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="unemployment_rate"
+                indicatorName="실업률"
+                chartType="line"
+              />
+            )}
+
+            {/* 기준금리 차트 */}
+            {indicators.some(ind => ind.indicator_type === 'interest_rate') && (
+              <IndicatorChart
+                indicators={indicators}
+                indicatorType="interest_rate"
+                indicatorName="기준금리"
+                chartType="line"
+              />
             )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">기간</th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">수치</th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">단위</th>
-                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase hidden sm:table-cell">비고</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {items
-                  .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
-                  .map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-medium">{item.period}</td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
-                        {item.value.toLocaleString()}
-                      </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">{item.unit || '-'}</td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">
-                        {item.note || '-'}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
         </div>
-      ))}
+      )}
+
+      {/* 핵심 지표 */}
+      {Object.entries(groupedIndicators)
+        .filter(([type]) => isCoreIndicator(type))
+        .length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">📊 핵심 경제 지표</h2>
+            <span className="text-xs text-gray-500">(항상 표시)</span>
+          </div>
+
+          {Object.entries(groupedIndicators)
+            .filter(([type]) => isCoreIndicator(type))
+            .map(([type, items]) => (
+              <div key={type} className="bg-white border border-blue-200 overflow-hidden shadow-sm">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-6 py-3 border-b border-blue-200">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-800">{getIndicatorName(type)}</h3>
+                  {items[0]?.source && (
+                    <p className="text-xs text-gray-500 mt-1">출처: {items[0].source}</p>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">기간</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">수치</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">단위</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase hidden sm:table-cell">비고</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {items
+                        .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+                        .map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-medium">{item.period}</td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
+                              {item.value.toLocaleString()}
+                            </td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">{item.unit || '-'}</td>
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">
+                              {item.note || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* 상세 지표 (접을 수 있음) */}
+      {Object.entries(groupedIndicators)
+        .filter(([type]) => !isCoreIndicator(type))
+        .length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800">📈 상세 경제 지표</h2>
+            <span className="text-xs text-gray-500">(클릭하여 펼치기/접기)</span>
+          </div>
+
+          {Object.entries(groupedIndicators)
+            .filter(([type]) => !isCoreIndicator(type))
+            .map(([type, items]) => {
+              const isExpanded = expandedSections[type] || false;
+
+              return (
+                <div key={type} className="bg-white border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(type)}
+                    className="w-full bg-gray-50 px-3 sm:px-6 py-3 border-b border-gray-200 hover:bg-gray-100 transition flex justify-between items-center"
+                  >
+                    <div className="text-left">
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-800">{getIndicatorName(type)}</h3>
+                      {items[0]?.source && (
+                        <p className="text-xs text-gray-500 mt-1">출처: {items[0].source}</p>
+                      )}
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">기간</th>
+                            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">수치</th>
+                            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase">단위</th>
+                            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 uppercase hidden sm:table-cell">비고</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {items
+                            .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+                            .map((item) => (
+                              <tr key={item.id} className="hover:bg-gray-50">
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-medium">{item.period}</td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
+                                  {item.value.toLocaleString()}
+                                </td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">{item.unit || '-'}</td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">
+                                  {item.note || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      )}
 
       {indicators.length === 0 && (
         <div className="text-center py-8 sm:py-12 bg-white border border-gray-200">

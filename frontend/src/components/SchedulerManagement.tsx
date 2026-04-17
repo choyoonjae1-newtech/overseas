@@ -15,6 +15,7 @@ export default function SchedulerManagement() {
   const [collectingReal, setCollectingReal] = useState(false);
   const [populatingSample, setPopulatingSample] = useState(false);
   const [cleaningDuplicates, setCleaningDuplicates] = useState(false);
+  const [crawlingNews, setCrawlingNews] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -159,6 +160,35 @@ export default function SchedulerManagement() {
       alert(`❌ 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
       setCleaningDuplicates(false);
+    }
+  };
+
+  const handleCrawlNews = async (countryCode?: string) => {
+    const countryName = countryCode === 'MM' ? '미얀마 CBM' :
+                        countryCode === 'ID' ? '인도네시아 OJK' : '전체';
+
+    if (!confirm(`🌐 ${countryName}에서 뉴스/공시를 크롤링하시겠습니까?\n\n웹사이트에서 최신 뉴스와 규제 공시를 수집합니다.`)) return;
+
+    setCrawlingNews(true);
+    try {
+      const result = await schedulerAPI.crawlNews(countryCode);
+
+      if (countryCode) {
+        alert(`✅ ${result.message}\n\n` +
+              `수집된 뉴스: ${result.count}개\n` +
+              `출처: ${result.source}`);
+      } else {
+        alert(`✅ ${result.message}\n\n` +
+              `미얀마 CBM: ${result.cbm_count}개\n` +
+              `인도네시아 OJK: ${result.ojk_count}개\n` +
+              `총합: ${result.total_count}개\n\n` +
+              `출처: ${result.sources.join(', ')}`);
+      }
+    } catch (error: any) {
+      console.error('웹 크롤링 실패:', error);
+      alert(`❌ 크롤링 실패: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setCrawlingNews(false);
     }
   };
 
@@ -365,6 +395,92 @@ export default function SchedulerManagement() {
             >
               {cleaningDuplicates ? '제거 중...' : '중복 제거'}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 웹 크롤링 */}
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold mb-2">🌐 웹 크롤링</h2>
+          <p className="text-gray-600 text-sm">미얀마 중앙은행(CBM)과 인도네시아 금융감독청(OJK) 웹사이트에서 최신 뉴스와 규제 공시를 수집합니다.</p>
+        </div>
+
+        <div className="border-2 border-purple-200 bg-purple-50 rounded-lg p-5">
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🌐</span>
+                <h3 className="font-bold text-xl text-purple-900">금융 규제 공시 크롤링</h3>
+              </div>
+              <p className="text-purple-800 text-sm mb-3">
+                중앙은행 및 금융감독청 공식 웹사이트에서 최신 규제 공시, 정책 발표, 금융 뉴스를 자동으로 수집합니다.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                {/* 미얀마 CBM */}
+                <div className="bg-white border border-purple-200 rounded p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span>🇲🇲</span>
+                    <h4 className="font-semibold text-purple-900">미얀마 중앙은행 (CBM)</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">Central Bank of Myanmar</p>
+                  <ul className="text-xs text-gray-700 space-y-1 mb-3">
+                    <li>• 통화정책 발표</li>
+                    <li>• 금융규제 지침</li>
+                    <li>• 환율 정책</li>
+                  </ul>
+                  <button
+                    onClick={() => handleCrawlNews('MM')}
+                    disabled={crawlingNews}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 text-sm font-semibold"
+                  >
+                    {crawlingNews ? '크롤링 중...' : 'CBM 크롤링'}
+                  </button>
+                </div>
+
+                {/* 인도네시아 OJK */}
+                <div className="bg-white border border-purple-200 rounded p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span>🇮🇩</span>
+                    <h4 className="font-semibold text-purple-900">인도네시아 금융감독청 (OJK)</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">Otoritas Jasa Keuangan</p>
+                  <ul className="text-xs text-gray-700 space-y-1 mb-3">
+                    <li>• 금융규제 공시</li>
+                    <li>• 감독정책</li>
+                    <li>• 허가/인가 정보</li>
+                  </ul>
+                  <button
+                    onClick={() => handleCrawlNews('ID')}
+                    disabled={crawlingNews}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 text-sm font-semibold"
+                  >
+                    {crawlingNews ? '크롤링 중...' : 'OJK 크롤링'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 전체 크롤링 버튼 */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => handleCrawlNews()}
+                  disabled={crawlingNews}
+                  className="px-8 py-3 bg-purple-700 text-white rounded-lg hover:bg-purple-800 disabled:bg-gray-400 font-semibold shadow-lg"
+                >
+                  {crawlingNews ? '크롤링 중...' : '🌐 전체 크롤링 (CBM + OJK)'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 p-3 bg-white rounded border border-purple-300">
+              <p className="text-sm text-purple-900">
+                <strong>📡 크롤링 대상:</strong> CBM (www.cbm.gov.mm), OJK (www.ojk.go.id)
+              </p>
+              <p className="text-xs text-purple-700 mt-1">
+                💡 크롤링 결과는 "주요 소식" 탭에서 확인할 수 있습니다.
+              </p>
+            </div>
           </div>
         </div>
       </div>

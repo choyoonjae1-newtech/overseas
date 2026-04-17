@@ -4,6 +4,8 @@ import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import HomePage from './components/HomePage';
 import CountryDashboard from './components/CountryDashboard';
+import CountryComparison from './components/CountryComparison';
+import ChatPage from './components/ChatPage';
 import AdminDashboard from './components/AdminDashboard';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +57,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <CountryDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/comparison"
+        element={
+          <PrivateRoute>
+            <CountryComparison />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          <PrivateRoute>
+            <ChatPage />
           </PrivateRoute>
         }
       />

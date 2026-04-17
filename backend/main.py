@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import engine, Base
-from routers import auth, users, countries, news, events, scheduler, indicators
+from routers import auth, users, countries, news, events, scheduler, indicators, chat
 from services.scheduler_service import scheduler_service
 
 # 데이터베이스 테이블 생성
@@ -53,6 +53,7 @@ app.include_router(news.router)
 app.include_router(events.router)
 app.include_router(scheduler.router)
 app.include_router(indicators.router)
+app.include_router(chat.router)
 
 # 관리자 라우터
 from routers import admin

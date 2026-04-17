@@ -77,6 +77,44 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+
+        {/* 국가 비교 버튼 */}
+        <div className="mt-6 sm:mt-8 max-w-4xl">
+          <button
+            onClick={() => navigate('/comparison')}
+            className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white p-4 sm:p-5 shadow hover:shadow-md transition flex items-center justify-between rounded-lg"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">📊</div>
+              <div className="text-left">
+                <h3 className="text-base sm:text-lg font-semibold">국가 비교 분석</h3>
+                <p className="text-xs sm:text-sm opacity-90">미얀마 vs 인도네시아 경제 지표 비교</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        {/* AI 채팅 어시스턴트 버튼 */}
+        <div className="mt-4 max-w-4xl">
+          <button
+            onClick={() => navigate('/chat')}
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 sm:p-5 shadow hover:shadow-md transition flex items-center justify-between rounded-lg"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🤖</div>
+              <div className="text-left">
+                <h3 className="text-base sm:text-lg font-semibold">AI 어시스턴트</h3>
+                <p className="text-xs sm:text-sm opacity-90">해외사업 전문가에게 무엇이든 물어보세요</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

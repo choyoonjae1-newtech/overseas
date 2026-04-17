@@ -587,3 +587,258 @@ def populate_indonesia_indicators_data(country_id: int) -> list:
         {"country_id": country_id, "indicator_type": "tourist_arrivals", "value": 1.28, "unit": "million", "period": "2026-02", "recorded_at": datetime(2026, 3, 25), "source": "Statistics Indonesia (BPS)", "note": "2월 외국인 관광객 수"},
         {"country_id": country_id, "indicator_type": "tourist_arrivals", "value": 1.42, "unit": "million", "period": "2026-03", "recorded_at": datetime(2026, 4, 25), "source": "Statistics Indonesia (BPS)", "note": "3월 외국인 관광객 수 (성수기)"},
     ]
+
+
+@router.post("/crawl-news")
+async def crawl_news_from_websites(
+    country_code: str = None,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    웹 크롤링으로 뉴스/공시 수집 (관리자 전용)
+    - country_code: 'MM' (미얀마만), 'ID' (인도네시아만), None (전체)
+    """
+    try:
+        from services.news_crawler import news_crawler
+
+        logger.info(f"🌐 웹 크롤링 시작 (country_code: {country_code or 'all'})")
+
+        if country_code == 'MM':
+            # 미얀마만
+            count = await news_crawler.crawl_cbm_news(db)
+            return {
+                "success": True,
+                "message": f"미얀마 CBM 뉴스 수집 완료",
+                "count": count,
+                "source": "Central Bank of Myanmar"
+            }
+        elif country_code == 'ID':
+            # 인도네시아만
+            count = await news_crawler.crawl_ojk_announcements(db)
+            return {
+                "success": True,
+                "message": f"인도네시아 OJK 공시 수집 완료",
+                "count": count,
+                "source": "Otoritas Jasa Keuangan"
+            }
+        else:
+            # 전체
+            results = await news_crawler.crawl_all(db)
+            return {
+                "success": True,
+                "message": f"전체 웹 크롤링 완료",
+                "cbm_count": results['cbm'],
+                "ojk_count": results['ojk'],
+                "total_count": results['total'],
+                "sources": ["CBM", "OJK"]
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 웹 크롤링 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"웹 크롤링 실패: {str(e)}")
+
+
+@router.post("/test-email")
+async def send_test_email(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    이메일 알림 테스트 (관리자 전용)
+    - SMTP 설정이 올바른지 확인
+    """
+    try:
+        from services.email_notifier import email_notifier
+
+        if not email_notifier.enabled:
+            return {
+                "success": False,
+                "message": "이메일 알림이 비활성화되어 있습니다.",
+                "error": "SMTP 설정을 확인하세요 (.env 파일의 SMTP_* 환경변수)"
+            }
+
+        # 테스트 이메일 발송
+        success = email_notifier.send_email(
+            subject="[테스트] JB우리캐피탈 모니터링 시스템 알림",
+            body=f"이메일 알림 시스템이 정상적으로 작동하고 있습니다.\n\n테스트 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            to_emails=email_notifier.admin_emails,
+            html=False
+        )
+
+        if success:
+            return {
+                "success": True,
+                "message": f"테스트 이메일 발송 완료",
+                "recipients": email_notifier.admin_emails
+            }
+        else:
+            return {
+                "success": False,
+                "message": "이메일 발송 실패",
+                "error": "SMTP 연결 또는 인증 실패"
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 이메일 테스트 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"이메일 테스트 실패: {str(e)}")
+
+
+@router.post("/ai-summarize-news")
+async def ai_summarize_news(
+    country_code: str,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    AI 뉴스 요약 (Claude API) - 관리자 전용
+    """
+    try:
+        from services.ai_summarizer import ai_summarizer
+
+        if not ai_summarizer.enabled:
+            return {
+                "success": False,
+                "message": "AI 요약이 비활성화되어 있습니다.",
+                "error": "CLAUDE_API_KEY를 설정하세요 (.env 파일)"
+            }
+
+        # 국가 정보 조회
+        country = db.query(Country).filter(Country.code == country_code).first()
+        if not country:
+            raise HTTPException(status_code=404, detail="국가를 찾을 수 없습니다")
+
+        # 최근 뉴스 조회 (최대 10개)
+        news_list = db.query(News).filter(
+            News.country_id == country.id
+        ).order_by(
+            News.published_at.desc()
+        ).limit(10).all()
+
+        if not news_list:
+            return {
+                "success": False,
+                "message": f"{country.name_ko}의 뉴스가 없습니다."
+            }
+
+        # AI 요약 생성
+        summary = ai_summarizer.summarize_news(news_list, country.name_ko)
+
+        return {
+            "success": True,
+            "message": f"{country.name_ko} 뉴스 AI 요약 완료",
+            "country": country.name_ko,
+            "news_count": len(news_list),
+            "summary": summary
+        }
+
+    except Exception as e:
+        logger.error(f"❌ AI 뉴스 요약 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"AI 요약 실패: {str(e)}")
+
+
+@router.post("/ai-analyze-indicators")
+async def ai_analyze_indicators(
+    country_code: str,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    AI 경제 지표 분석 (Claude API) - 관리자 전용
+    """
+    try:
+        from services.ai_summarizer import ai_summarizer
+
+        if not ai_summarizer.enabled:
+            return {
+                "success": False,
+                "message": "AI 분석이 비활성화되어 있습니다.",
+                "error": "CLAUDE_API_KEY를 설정하세요 (.env 파일)"
+            }
+
+        # 국가 정보 조회
+        country = db.query(Country).filter(Country.code == country_code).first()
+        if not country:
+            raise HTTPException(status_code=404, detail="국가를 찾을 수 없습니다")
+
+        # 경제 지표 조회
+        indicators = db.query(EconomicIndicator).filter(
+            EconomicIndicator.country_id == country.id
+        ).all()
+
+        if not indicators:
+            return {
+                "success": False,
+                "message": f"{country.name_ko}의 경제 지표가 없습니다."
+            }
+
+        # AI 분석 생성
+        analysis = ai_summarizer.analyze_indicators(indicators, country.name_ko)
+
+        return {
+            "success": True,
+            "message": f"{country.name_ko} 경제 지표 AI 분석 완료",
+            "country": country.name_ko,
+            "indicators_count": len(indicators),
+            "analysis": analysis
+        }
+
+    except Exception as e:
+        logger.error(f"❌ AI 지표 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"AI 분석 실패: {str(e)}")
+
+
+@router.post("/ai-compare-countries")
+async def ai_compare_countries(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    AI 국가 비교 분석 (미얀마 vs 인도네시아) - 관리자 전용
+    """
+    try:
+        from services.ai_summarizer import ai_summarizer
+
+        if not ai_summarizer.enabled:
+            return {
+                "success": False,
+                "message": "AI 분석이 비활성화되어 있습니다.",
+                "error": "CLAUDE_API_KEY를 설정하세요 (.env 파일)"
+            }
+
+        # 양국 정보 조회
+        myanmar = db.query(Country).filter(Country.code == 'MM').first()
+        indonesia = db.query(Country).filter(Country.code == 'ID').first()
+
+        if not myanmar or not indonesia:
+            raise HTTPException(status_code=404, detail="국가 정보를 찾을 수 없습니다")
+
+        # 양국 경제 지표 조회
+        mm_indicators = db.query(EconomicIndicator).filter(
+            EconomicIndicator.country_id == myanmar.id
+        ).all()
+
+        id_indicators = db.query(EconomicIndicator).filter(
+            EconomicIndicator.country_id == indonesia.id
+        ).all()
+
+        if not mm_indicators or not id_indicators:
+            return {
+                "success": False,
+                "message": "경제 지표 데이터가 부족합니다."
+            }
+
+        # AI 비교 분석 생성
+        insight = ai_summarizer.generate_comparison_insight(mm_indicators, id_indicators)
+
+        return {
+            "success": True,
+            "message": "미얀마 vs 인도네시아 AI 비교 분석 완료",
+            "myanmar_indicators": len(mm_indicators),
+            "indonesia_indicators": len(id_indicators),
+            "insight": insight
+        }
+
+    except Exception as e:
+        logger.error(f"❌ AI 비교 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"AI 분석 실패: {str(e)}")

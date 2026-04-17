@@ -43,4 +43,13 @@ export const schedulerAPI = {
     const response = await client.post('/api/admin/clean-duplicates');
     return response.data;
   },
+
+  // 웹 크롤링 (CBM, OJK)
+  crawlNews: async (countryCode?: string): Promise<any> => {
+    const url = countryCode
+      ? `/api/admin/crawl-news?country_code=${countryCode}`
+      : '/api/admin/crawl-news';
+    const response = await client.post(url);
+    return response.data;
+  },
 };
