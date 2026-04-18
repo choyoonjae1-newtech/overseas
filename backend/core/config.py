@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # External APIs
     NEWSAPI_KEY: str = ""
     CALENDARIFIC_API_KEY: str = ""
+    CLAUDE_API_KEY: str = ""
 
     # CORS (comma-separated string in .env, converted to list)
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
