@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import client from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -42,7 +42,7 @@ export default function ChatPage() {
 
   const checkChatStatus = async () => {
     try {
-      const response = await axios.get('/api/chat/status');
+      const response = await client.get('/api/chat/status');
       setChatAvailable(response.data.available);
     } catch (error) {
       console.error('채팅 상태 확인 실패:', error);
@@ -70,7 +70,7 @@ export default function ChatPage() {
         content: msg.content
       }));
 
-      const response = await axios.post('/api/chat/message', {
+      const response = await client.post('/api/chat/message', {
         message: inputMessage,
         history: history
       });
